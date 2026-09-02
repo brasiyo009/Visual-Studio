@@ -96,7 +96,7 @@ function normalizeItems(items, kind, fallback) {
 function normalizeConfirmation(value) {
   if (!value) return null;
   const fallback = { description: value.name, quantity: value.quantity, unitPrice: value.price, note: "" };
-  return { ...value, invoiceItems: normalizeItems(value.invoiceItems, "invoice", fallback), deliveryItems: normalizeItems(value.deliveryItems, "delivery", fallback) };
+  return { ...value, confirmationItems: normalizeItems(value.confirmationItems, "confirmation", fallback), invoiceItems: normalizeItems(value.invoiceItems, "invoice", fallback), deliveryItems: normalizeItems(value.deliveryItems, "delivery", fallback) };
 }
 function setConfirmation(value) {
   confirmation = normalizeConfirmation(value);
@@ -106,7 +106,7 @@ function setConfirmation(value) {
   $("confirm-offer").disabled = active;
   document.querySelectorAll(".confirmed-tab").forEach((tab) => tab.classList.toggle("hidden", !active));
   $("order-status").classList.toggle("hidden", !active);
-  if (active) { $("sales-order-status").textContent = "Auftrag bestätigt"; renderDocumentSummary(); renderDocumentItems("invoice"); renderDocumentItems("delivery"); renderDocumentTotal(); }
+  if (active) { $("sales-order-status").textContent = "Auftrag bestätigt"; renderDocumentItems("confirmation"); renderDocumentItems("invoice"); renderDocumentItems("delivery"); renderDocumentTotal(); }
 }
 function setDocumentDates(value) {
   const fields = { "confirmation-date": value?.confirmationDate || "", "delivery-date": value?.deliveryDate || "", "invoice-date": value?.invoiceDate || "", "due-date": value?.dueDate || "", "sales-confirmation-date": value?.confirmationDate || "", "sales-delivery-date": value?.deliveryDate || "", "sales-confirmation-number": value?.confirmationNumber || "", "invoice-document-date": value?.invoiceDate || "", "invoice-due-date": value?.dueDate || "", "delivery-document-date": value?.deliveryDate || "", "delivery-note": value?.deliveryNote || "" };
@@ -116,27 +116,29 @@ function setDocumentDates(value) {
 function renderDocumentSummary() { if (!confirmation) return; $("sales-order-number").textContent = confirmation.confirmationNumber || "—"; $("sales-order-customer").textContent = confirmation.customer?.name || "Kunde ergänzen"; $("sales-order-total").textContent = money.format(confirmation.order || 0); }
 function renderDocumentItems(kind) {
   if (!confirmation) return;
-  const key = kind === "invoice" ? "invoiceItems" : "deliveryItems";
-  const container = $(kind === "invoice" ? "invoice-items" : "delivery-items");
+  const priced = kind !== "delivery";
+  const key = kind === "confirmation" ? "confirmationItems" : kind === "invoice" ? "invoiceItems" : "deliveryItems";
+  const container = $(kind === "confirmation" ? "sales-order-items" : kind === "invoice" ? "invoice-items" : "delivery-items");
   container.replaceChildren();
   confirmation[key].forEach((item, index) => {
     const row = document.createElement("div"); row.className = `document-item ${kind}`;
     const description = document.createElement("input"); description.className = "item-description"; description.value = item.description; description.setAttribute("aria-label", "Position");
     const quantity = document.createElement("input"); quantity.className = "item-quantity"; quantity.type = "number"; quantity.min = "1"; quantity.step = "1"; quantity.value = item.quantity; quantity.setAttribute("aria-label", "Menge");
-    const detail = document.createElement("input"); detail.className = kind === "invoice" ? "item-price" : "item-note"; detail.type = kind === "invoice" ? "number" : "text"; if (kind === "invoice") { detail.min = "0"; detail.step = "0.05"; detail.value = item.unitPrice; } else { detail.placeholder = "Optional"; detail.value = item.note; } detail.setAttribute("aria-label", kind === "invoice" ? "Einzelpreis" : "Notiz");
+    const detail = document.createElement("input"); detail.className = priced ? "item-price" : "item-note"; detail.type = priced ? "number" : "text"; if (priced) { detail.min = "0"; detail.step = "0.05"; detail.value = item.unitPrice; } else { detail.placeholder = "Optional"; detail.value = item.note; } detail.setAttribute("aria-label", priced ? "Einzelpreis" : "Notiz");
     const remove = document.createElement("button"); remove.className = "remove-item"; remove.type = "button"; remove.textContent = "×"; remove.setAttribute("aria-label", `${item.description} entfernen`);
-    const update = () => { item.description = description.value.trim() || "Position"; item.quantity = Math.max(1, Number(quantity.value) || 1); if (kind === "invoice") item.unitPrice = Math.max(0, Number(detail.value) || 0); else item.note = detail.value.trim(); renderDocumentTotal(); queueOrderSave(); };
+    const update = () => { item.description = description.value.trim() || "Position"; item.quantity = Math.max(1, Number(quantity.value) || 1); if (priced) item.unitPrice = Math.max(0, Number(detail.value) || 0); else item.note = detail.value.trim(); renderDocumentTotal(); queueOrderSave(); };
     [description, quantity, detail].forEach((input) => input.addEventListener("input", update));
     remove.addEventListener("click", () => { if (confirmation[key].length === 1) return; confirmation[key].splice(index, 1); renderDocumentItems(kind); renderDocumentTotal(); queueOrderSave(); });
     row.append(description, quantity, detail, remove); container.append(row);
   });
 }
-function renderDocumentTotal() { if (!confirmation) return; const subtotal = confirmation.invoiceItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0); const discount = subtotal * Math.min(Math.max(Number(confirmation.discountPercent) || 0, 0), 100) / 100; $("invoice-total").textContent = money.format(subtotal - discount); renderDocumentSummary(); }
+function itemTotal(items) { const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0); const discount = subtotal * Math.min(Math.max(Number(confirmation.discountPercent) || 0, 0), 100) / 100; return { subtotal, discount, total: subtotal - discount }; }
+function renderDocumentTotal() { if (!confirmation) return; const salesOrder = itemTotal(confirmation.confirmationItems); const invoice = itemTotal(confirmation.invoiceItems); confirmation.subtotal = salesOrder.subtotal; confirmation.discountValue = salesOrder.discount; confirmation.order = salesOrder.total; $("invoice-total").textContent = money.format(invoice.total); renderDocumentSummary(); }
 function syncDocumentFields() { if (!confirmation) return; confirmation.confirmationDate = $("sales-confirmation-date").value || $("confirmation-date").value; confirmation.deliveryDate = $("sales-delivery-date").value || $("delivery-document-date").value; confirmation.invoiceDate = $("invoice-document-date").value || $("invoice-date").value; confirmation.dueDate = $("invoice-due-date").value || $("due-date").value; confirmation.deliveryNote = $("delivery-note").value.trim(); }
 let orderSaveTimer;
 function queueOrderSave() { if (!confirmation) return; syncDocumentFields(); clearTimeout(orderSaveTimer); orderSaveTimer = setTimeout(async () => { try { await window.druckpreis.saveOrder(confirmation); } catch { /* The next export retries the save. */ } }, 250); }
 async function saveOrderDraft() { if (!confirmation) return; syncDocumentFields(); await window.druckpreis.saveOrder(confirmation); }
-function addDocumentItem(kind) { if (!confirmation) return; const key = kind === "invoice" ? "invoiceItems" : "deliveryItems"; confirmation[key].push(kind === "invoice" ? { description: "Zusatzposition", quantity: 1, unitPrice: 0, note: "" } : { description: "Neue Lieferposition", quantity: 1, unitPrice: 0, note: "" }); renderDocumentItems(kind); renderDocumentTotal(); queueOrderSave(); }
+function addDocumentItem(kind) { if (!confirmation) return; const key = kind === "confirmation" ? "confirmationItems" : kind === "invoice" ? "invoiceItems" : "deliveryItems"; confirmation[key].push(kind === "delivery" ? { description: "Neue Lieferposition", quantity: 1, unitPrice: 0, note: "" } : { description: "Zusatzposition", quantity: 1, unitPrice: 0, note: "" }); renderDocumentItems(kind); renderDocumentTotal(); queueOrderSave(); }
 async function loadOffer() { const saved = await window.druckpreis.loadOffer(offerNumber()); if (saved?.values) { applySnapshot(saved.values); $("save-status").textContent = "Gespeichertes Angebot geladen"; } setConfirmation(await window.druckpreis.loadConfirmation(offerNumber())); if (confirmation) setDocumentDates(confirmation); await refreshFiles(); }
 function dateString(date) { return date.toISOString().slice(0, 10); }
 function resetOffer(numberValue) { for (const [id, value] of Object.entries(defaultValues)) $(id).value = id === "offer-number" ? numberValue : value; const today = new Date(), valid = new Date(); valid.setDate(today.getDate() + 30); $("offer-date").value = dateString(today); $("valid-until").value = dateString(valid); $("file-list").innerHTML = "<li>Keine Projektdateien vorhanden.</li>"; $("save-status").textContent = "Noch nicht gespeichert"; setConfirmation(null); calculate(); }
@@ -167,6 +169,7 @@ $("export-invoice").addEventListener("click", () => exportDocument("invoice"));
 $("generate-sales-order").addEventListener("click", () => exportDocument("confirmation", "sales-order-message"));
 $("generate-invoice").addEventListener("click", () => exportDocument("invoice", "invoice-message"));
 $("generate-delivery").addEventListener("click", () => exportDocument("delivery", "delivery-message"));
+$("sales-order-add-item").addEventListener("click", () => addDocumentItem("confirmation"));
 $("invoice-add-item").addEventListener("click", () => addDocumentItem("invoice"));
 $("delivery-add-item").addEventListener("click", () => addDocumentItem("delivery"));
 $("save-settings").addEventListener("click", async () => { try { applySettings(await window.druckpreis.saveSettings(settingsPayload())); $("settings-message").textContent = "Administration wurde gespeichert."; } catch { $("settings-message").textContent = "Die Administration konnte nicht gespeichert werden."; } });

@@ -197,7 +197,7 @@ function drawAddressAndDates(page, layout, fonts, colors, customer, fields, star
   return startY - Math.max(64, fields.length * (layout.compact ? 35 : 40) + 4);
 }
 function normalizedDocumentItems(kind, order) {
-  const source = kind === "invoice" ? order.invoiceItems : kind === "delivery" ? order.deliveryItems : null;
+  const source = kind === "confirmation" ? order.confirmationItems : kind === "invoice" ? order.invoiceItems : order.deliveryItems;
   const items = Array.isArray(source) && source.length ? source : [{ description: order.name, quantity: order.quantity, unitPrice: order.price }];
   return items.map((item) => ({
     description: String(item.description || item.name || "Position").trim() || "Position",
@@ -208,7 +208,7 @@ function normalizedDocumentItems(kind, order) {
 }
 function documentOrder(kind, order) {
   const documentItems = normalizedDocumentItems(kind, order);
-  if (kind !== "invoice") return { ...order, documentItems };
+  if (kind === "delivery") return { ...order, documentItems };
   const subtotal = documentItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const discountPercent = Math.min(Math.max(Number(order.discountPercent) || 0, 0), 100);
   const discountValue = subtotal * discountPercent / 100;
@@ -363,7 +363,7 @@ function createWindow() {
 if (process.env.DRUCKPREIS_PDF_SMOKE === "1") {
   app.whenReady().then(async () => {
     const folder = path.join(process.cwd(), "tmp", "pdfs");
-    const sample = { offerNumber: "ANG-2026-021", confirmationNumber: "AB-2026-021", deliveryNumber: "LS-2026-021", invoiceNumber: "RE-2026-021", name: "Präzisionsgehäuse", customer: { name: "Muster AG", address: "Werkstrasse 12", city: "8000 Zürich" }, offerDate: "2026-08-31", validUntil: "2026-09-30", confirmationDate: "2026-08-31", deliveryDate: "2026-09-10", invoiceDate: "2026-09-10", dueDate: "2026-09-20", quantity: 3, price: 42.5, subtotal: 127.5, discountPercent: 10, discountValue: 12.75, order: 114.75, breakdown: [{ label: "Arbeitszeit", value: 35.4 }, { label: "Material", value: 28.6 }, { label: "Druckbetrieb & Reserve", value: 19.2 }, { label: "Weitere Kosten", value: 8.1 }] };
+    const sample = { offerNumber: "ANG-2026-021", confirmationNumber: "AB-2026-021", deliveryNumber: "LS-2026-021", invoiceNumber: "RE-2026-021", name: "Präzisionsgehäuse", customer: { name: "Muster AG", address: "Werkstrasse 12", city: "8000 Zürich" }, offerDate: "2026-08-31", validUntil: "2026-09-30", confirmationDate: "2026-08-31", deliveryDate: "2026-09-10", invoiceDate: "2026-09-10", dueDate: "2026-09-20", quantity: 3, price: 42.5, subtotal: 127.5, discountPercent: 10, discountValue: 12.75, order: 114.75, confirmationItems: [{ description: "Präzisionsgehäuse", quantity: 3, unitPrice: 42.5 }, { description: "Zusatzhalterung", quantity: 2, unitPrice: 12.5 }], breakdown: [{ label: "Arbeitszeit", value: 35.4 }, { label: "Material", value: 28.6 }, { label: "Druckbetrieb & Reserve", value: 19.2 }, { label: "Weitere Kosten", value: 8.1 }] };
     const sampleSettings = { companyName: "SY 3D", companyAddress: "Werkstrasse 4", companyCity: "8005 Zürich", companyEmail: "hallo@druckpreis.ch", companyPhone: "+41 44 555 12 34", paymentTerms: 10, logoPath: process.env.DRUCKPREIS_PDF_SMOKE_LOGO || "", logoPosition: "top-right", logoWidth: 74, pdfFont: "Helvetica", priceDisplay: "gross", pdfFooter: "Copyright © 2026 SY 3D", showCompanyAddress: true, showCustomerAddress: true, showDiscount: true, showCostSummary: true };
     await fs.mkdir(folder, { recursive: true });
     for (const format of ["A4", "A5"]) {
@@ -440,7 +440,7 @@ app.whenReady().then(async () => {
     catch {
       const settings = await loadAppSettings();
       const suffix = String(offer.offerNumber || "ANG-000").replace(/^ANG-/, "");
-      const confirmed = { ...offer, confirmationNumber: `AB-${suffix}`, deliveryNumber: `LS-${suffix}`, invoiceNumber: `RE-${suffix}`, confirmationDate: isoDate(), deliveryDate: "", invoiceDate: isoDate(), dueDate: isoDate(Number(settings.paymentTerms) || 10), confirmedAt: new Date().toISOString(), invoiceItems: [{ description: offer.name, quantity: offer.quantity, unitPrice: offer.price }], deliveryItems: [{ description: offer.name, quantity: offer.quantity, note: "" }], documents: {} };
+      const confirmed = { ...offer, confirmationNumber: `AB-${suffix}`, deliveryNumber: `LS-${suffix}`, invoiceNumber: `RE-${suffix}`, confirmationDate: isoDate(), deliveryDate: "", invoiceDate: isoDate(), dueDate: isoDate(Number(settings.paymentTerms) || 10), confirmedAt: new Date().toISOString(), confirmationItems: [{ description: offer.name, quantity: offer.quantity, unitPrice: offer.price }], invoiceItems: [{ description: offer.name, quantity: offer.quantity, unitPrice: offer.price }], deliveryItems: [{ description: offer.name, quantity: offer.quantity, note: "" }], documents: {} };
       return (await writeOrderDocument("confirmation", confirmed)).order;
     }
   });
