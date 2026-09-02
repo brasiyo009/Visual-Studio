@@ -1,0 +1,8 @@
+cd "/Users/brasanthanyogalingam/Documents/3D Print"
+
+gh auth login
+
+git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPOSITORY.git
+git add -A
+git commit -m "Add SY 3D order workflow"
+git push -u origin main
