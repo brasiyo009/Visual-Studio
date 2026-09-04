@@ -2,6 +2,8 @@ const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { PDFDocument, StandardFonts, rgb } = require("pdf-lib");
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { DEFAULT_LOGO_WIDTH, LOGO_SIZE_VERSION, logoBounds, normalizeLogoSettings } = require("./pdf-layout.cjs");
 
 let mainWindow;
 
@@ -20,7 +22,7 @@ function offersRoot() {
 
 const defaultAppSettings = {
   companyName: "Druckpreis", companyAddress: "", companyCity: "", companyEmail: "", companyPhone: "", paymentTerms: 10,
-  logoPath: "", logoPosition: "top-right", logoWidth: 74, pdfFormat: "A4", pdfFont: "Helvetica", priceDisplay: "gross",
+  logoPath: "", logoPosition: "top-right", logoWidth: DEFAULT_LOGO_WIDTH, logoSizeVersion: LOGO_SIZE_VERSION, pdfFormat: "A4", pdfFont: "Helvetica", priceDisplay: "gross",
   pdfFooter: "Copyright © 2026 SY 3D", showCompanyAddress: true, showCustomerAddress: true, showDiscount: true, showCostSummary: true,
 };
 
@@ -36,7 +38,7 @@ async function storedLogoPath() {
 async function loadAppSettings() {
   let stored = {};
   try { stored = JSON.parse(await fs.readFile(settingsFile(), "utf8")); } catch { /* First run uses defaults. */ }
-  const settings = { ...defaultAppSettings, ...stored };
+  const settings = { ...defaultAppSettings, ...normalizeLogoSettings(stored) };
   try { if (settings.logoPath) await fs.access(settings.logoPath); } catch { settings.logoPath = ""; }
   if (!settings.logoPath) settings.logoPath = await storedLogoPath();
   return settings;
@@ -130,8 +132,7 @@ async function drawLogo(pdf, page, settings, layout) {
     const bytes = await fs.readFile(settings.logoPath);
     const extension = path.extname(settings.logoPath).toLowerCase();
     const image = extension === ".png" ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
-    const maxWidth = Math.min(Math.max(Number(settings.logoWidth) || 74, 20), layout.compact ? 96 : 140);
-    const maxHeight = layout.compact ? 30 : 42;
+    const { maxWidth, maxHeight } = logoBounds(settings, layout.compact);
     const dimensions = image.scale(Math.min(maxWidth / image.width, maxHeight / image.height));
     const x = settings.logoPosition === "top-left" ? layout.margin : layout.right - dimensions.width;
     const y = layout.top - dimensions.height;
@@ -171,7 +172,9 @@ async function drawDocumentHeader(pdf, page, settings, layout, fonts, colors, ti
   const contactLines = [settings.companyAddress, settings.companyCity, [settings.companyEmail, settings.companyPhone].filter(Boolean).join(" · ")].filter(Boolean);
   contactLines.slice(0, 3).forEach((line, index) => drawText(page, truncateText(fonts.regular, line, contactSize, companyWidth), companyX, layout.top - 14 - index * (layout.compact ? 9 : 11), contactSize, fonts.regular, colors.muted));
   // Keep the title and document number below the logo and company-contact block.
-  const logoTitleY = layout.top - (layout.compact ? 50 : 60);
+  const logoTitleY = logo
+    ? logo.y - layout.titleSize - (layout.compact ? 6 : 8)
+    : layout.top - (layout.compact ? 50 : 60);
   const contactTitleY = contactLines.length
     ? layout.top - 14 - (contactLines.length - 1) * (layout.compact ? 9 : 11) - layout.titleSize - (layout.compact ? 6 : 8)
     : logoTitleY;
@@ -364,7 +367,7 @@ if (process.env.DRUCKPREIS_PDF_SMOKE === "1") {
   app.whenReady().then(async () => {
     const folder = path.join(process.cwd(), "tmp", "pdfs");
     const sample = { offerNumber: "ANG-2026-021", confirmationNumber: "AB-2026-021", deliveryNumber: "LS-2026-021", invoiceNumber: "RE-2026-021", name: "Präzisionsgehäuse", customer: { name: "Muster AG", address: "Werkstrasse 12", city: "8000 Zürich" }, offerDate: "2026-08-31", validUntil: "2026-09-30", confirmationDate: "2026-08-31", deliveryDate: "2026-09-10", invoiceDate: "2026-09-10", dueDate: "2026-09-20", quantity: 3, price: 42.5, subtotal: 127.5, discountPercent: 10, discountValue: 12.75, order: 114.75, confirmationItems: [{ description: "Präzisionsgehäuse", quantity: 3, unitPrice: 42.5 }, { description: "Zusatzhalterung", quantity: 2, unitPrice: 12.5 }], breakdown: [{ label: "Arbeitszeit", value: 35.4 }, { label: "Material", value: 28.6 }, { label: "Druckbetrieb & Reserve", value: 19.2 }, { label: "Weitere Kosten", value: 8.1 }] };
-    const sampleSettings = { companyName: "SY 3D", companyAddress: "Werkstrasse 4", companyCity: "8005 Zürich", companyEmail: "hallo@druckpreis.ch", companyPhone: "+41 44 555 12 34", paymentTerms: 10, logoPath: process.env.DRUCKPREIS_PDF_SMOKE_LOGO || "", logoPosition: "top-right", logoWidth: 74, pdfFont: "Helvetica", priceDisplay: "gross", pdfFooter: "Copyright © 2026 SY 3D", showCompanyAddress: true, showCustomerAddress: true, showDiscount: true, showCostSummary: true };
+    const sampleSettings = { companyName: "SY 3D", companyAddress: "Werkstrasse 4", companyCity: "8005 Zürich", companyEmail: "hallo@druckpreis.ch", companyPhone: "+41 44 555 12 34", paymentTerms: 10, logoPath: process.env.DRUCKPREIS_PDF_SMOKE_LOGO || "", logoPosition: "top-right", logoWidth: DEFAULT_LOGO_WIDTH, logoSizeVersion: LOGO_SIZE_VERSION, pdfFont: "Helvetica", priceDisplay: "gross", pdfFooter: "Copyright © 2026 SY 3D", showCompanyAddress: true, showCustomerAddress: true, showDiscount: true, showCostSummary: true };
     await fs.mkdir(folder, { recursive: true });
     for (const format of ["A4", "A5"]) {
       const suffix = format.toLowerCase(), settings = { ...sampleSettings, pdfFormat: format };
