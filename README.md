@@ -1,4 +1,34 @@
-# vinext-starter
+# Druckpreis für macOS
+
+Lokale SY-3D-Anwendung für 3D-Druckkalkulation, Angebote, Auftragsbestätigungen, Lieferscheine und Rechnungen.
+
+## macOS installieren
+
+[Version 0.2.7 herunterladen](https://github.com/brasiyo009/Visual-Studio/releases/tag/v0.2.7). macOS 13 oder neuer ist erforderlich.
+
+- Apple Silicon (M-Serie): `Druckpreis-0.2.7-arm64.dmg`
+- Intel: `Druckpreis-0.2.7-x64.dmg`
+
+Druckpreis beenden, die DMG öffnen und die App in den Programme-Ordner ziehen. Angebote und Einstellungen bleiben unter `Dokumente/3D Druck Angebote` erhalten. Bereits exportierte PDFs bei Bedarf erneut erstellen.
+
+Die Pakete sind nicht mit einer Apple Developer ID signiert oder notarisiert; macOS kann beim ersten Start eine Sicherheitsfreigabe verlangen. Prüfsummen stehen im Release als `SHA256SUMS.txt` bereit.
+
+## Desktop entwickeln und prüfen
+
+```sh
+npm install
+npm run desktop:dev
+npm run test:desktop
+npm run lint
+npm test
+npm run desktop:package -- --arm64 --x64 --publish never
+```
+
+Installationspakete landen unter `release/macos/`, getrennt vom Web-Build unter `dist/`.
+
+Ab Version 0.2.7 übernehmen Rechnung und Lieferschein die Auftragspositionen. Eigene Ergänzungen und bewusst geänderte Werte bleiben erhalten. Datumsfelder teilen sich über alle Ansichten denselben Wert. Angebotsdateien speichern ausschliesslich Angebotsdaten; alte Administrationseinträge werden beim Laden ignoriert.
+
+## Web-Projekt
 
 A clean full-stack starter running on
 [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
@@ -91,7 +121,7 @@ actions tied to the current ChatGPT user. Leave public content anonymous.
 
 - `npm run dev`: start local development
 - `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
+- `npm test`: build the web app and verify the rendered calculator
 - `npm run db:generate`: generate Drizzle migrations after schema changes
 
 ## Learn More

@@ -2,8 +2,9 @@ const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { PDFDocument, StandardFonts, rgb } = require("pdf-lib");
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { DEFAULT_LOGO_WIDTH, LOGO_SIZE_VERSION, logoBounds, normalizeLogoSettings } = require("./pdf-layout.cjs");
+
+const { normalizeOrder } = require("./order-items.cjs");
 
 let mainWindow;
 
@@ -21,7 +22,7 @@ function offersRoot() {
 }
 
 const defaultAppSettings = {
-  companyName: "Druckpreis", companyAddress: "", companyCity: "", companyEmail: "", companyPhone: "", paymentTerms: 10,
+  companyName: "SY 3D", companyAddress: "", companyCity: "", companyEmail: "", companyPhone: "", paymentTerms: 10,
   logoPath: "", logoPosition: "top-right", logoWidth: DEFAULT_LOGO_WIDTH, logoSizeVersion: LOGO_SIZE_VERSION, pdfFormat: "A4", pdfFont: "Helvetica", priceDisplay: "gross",
   pdfFooter: "Copyright © 2026 SY 3D", showCompanyAddress: true, showCustomerAddress: true, showDiscount: true, showCostSummary: true,
 };
@@ -39,6 +40,7 @@ async function loadAppSettings() {
   let stored = {};
   try { stored = JSON.parse(await fs.readFile(settingsFile(), "utf8")); } catch { /* First run uses defaults. */ }
   const settings = { ...defaultAppSettings, ...normalizeLogoSettings(stored) };
+  if (/^druckpreis$/i.test(settings.companyName.trim())) settings.companyName = "SY 3D";
   try { if (settings.logoPath) await fs.access(settings.logoPath); } catch { settings.logoPath = ""; }
   if (!settings.logoPath) settings.logoPath = await storedLogoPath();
   return settings;
@@ -142,7 +144,7 @@ async function drawLogo(pdf, page, settings, layout) {
   return null;
 }
 function drawCompanyFooter(page, settings, layout, regular, muted, documentLabel, lineColor) {
-  const fontSize = layout.compact ? 6.3 : 7;
+  const fontSize = layout.compact ? 7 : 8;
   const lineY = layout.margin + (layout.compact ? 22 : 24);
   const textY = layout.margin - (layout.compact ? 1 : 0);
   drawRule(page, layout, lineY, lineColor);
@@ -151,10 +153,10 @@ function drawCompanyFooter(page, settings, layout, regular, muted, documentLabel
   const origin = "Designed / Printed and supplied in Switzerland";
   const number = truncateText(regular, documentLabel, fontSize, layout.compact ? 74 : 105);
   drawText(page, footer, layout.margin, textY, fontSize, regular, muted);
-  drawRight(page, origin, layout.right, textY + (layout.compact ? 10 : 11), layout.compact ? 5.8 : 6.5, regular, muted, layout.compact ? 150 : 220);
+  drawRight(page, origin, layout.right, textY + (layout.compact ? 10 : 11), layout.compact ? 6.5 : 7, regular, muted, layout.compact ? 150 : 220);
   drawRight(page, number, layout.right, textY, fontSize, regular, muted, layout.compact ? 74 : 105);
   if (settings.showCompanyAddress) {
-    const company = ["SY 3D", settings.companyAddress, settings.companyCity, settings.companyEmail, settings.companyPhone].filter(Boolean).join(" · ");
+    const company = [settings.companyName || "SY 3D", settings.companyAddress, settings.companyCity, settings.companyEmail, settings.companyPhone].filter(Boolean).join(" · ");
     const companyStart = layout.margin + textWidth(regular, footer, fontSize) + 14;
     const companyEnd = layout.right - textWidth(regular, number, fontSize) - 14;
     if (company && companyEnd > companyStart + 24) drawText(page, truncateText(regular, company, fontSize, companyEnd - companyStart), companyStart, textY, fontSize, regular, muted);
@@ -168,7 +170,7 @@ async function drawDocumentHeader(pdf, page, settings, layout, fonts, colors, ti
   const contactSize = layout.compact ? 6.7 : 8;
   const companyRight = logo?.position === "top-right" ? logo.x - 12 : layout.right;
   const companyWidth = Math.max(80, companyRight - companyX);
-  drawText(page, truncateText(fonts.bold, (settings.companyName || "DRUCKPREIS").toUpperCase(), companySize, companyWidth), companyX, layout.top - 1, companySize, fonts.bold, colors.violet);
+  drawText(page, truncateText(fonts.bold, (settings.companyName || "SY 3D").toUpperCase(), companySize, companyWidth), companyX, layout.top - 1, companySize, fonts.bold, colors.violet);
   const contactLines = [settings.companyAddress, settings.companyCity, [settings.companyEmail, settings.companyPhone].filter(Boolean).join(" · ")].filter(Boolean);
   contactLines.slice(0, 3).forEach((line, index) => drawText(page, truncateText(fonts.regular, line, contactSize, companyWidth), companyX, layout.top - 14 - index * (layout.compact ? 9 : 11), contactSize, fonts.regular, colors.muted));
   // Keep the title and document number below the logo and company-contact block.
@@ -217,24 +219,76 @@ function documentOrder(kind, order) {
   const discountValue = subtotal * discountPercent / 100;
   return { ...order, documentItems, subtotal, discountPercent, discountValue, order: subtotal - discountValue };
 }
-function drawLineItem(page, layout, fonts, colors, y, order, settings, includePrice = true) {
+function wrapText(font, value, size, maxWidth) {
+  const lines = [];
+  for (const paragraph of String(value || "—").split(/\r?\n/)) {
+    let line = "";
+    for (const word of paragraph.split(/\s+/)) {
+      if (line && textWidth(font, `${line} ${word}`, size) > maxWidth) { lines.push(line); line = ""; }
+      for (const character of (line ? " " : "") + word) {
+        if (line && textWidth(font, line + character, size) > maxWidth) { lines.push(line); line = ""; }
+        line += character;
+      }
+    }
+    lines.push(line || " ");
+  }
+  return lines;
+}
+function createPdfFlow(pdf, settings, fonts, colors, title, number) {
+  const flow = { page: null, layout: null, y: 0 };
+  flow.newPage = async () => {
+    flow.page = pdf.addPage(pdfPageSize(settings.pdfFormat));
+    flow.layout = pdfLayout(flow.page, settings.pdfFormat);
+    flow.bottom = flow.layout.margin + 32;
+    flow.y = await drawDocumentHeader(pdf, flow.page, settings, flow.layout, fonts, colors, title, number);
+  };
+  flow.ensure = async (height) => {
+    if (flow.y - height >= flow.bottom) return false;
+    await flow.newPage();
+    return true;
+  };
+  flow.finish = () => {
+    const pages = pdf.getPages();
+    pages.forEach((page, index) => {
+      const layout = pdfLayout(page, settings.pdfFormat);
+      drawCompanyFooter(page, settings, layout, fonts.regular, colors.muted, number, colors.line);
+      if (pages.length > 1) drawText(page, `Seite ${index + 1} / ${pages.length}`, layout.margin, layout.margin + 10, layout.compact ? 7 : 8, fonts.regular, colors.muted);
+    });
+  };
+  return flow;
+}
+async function drawLineItems(flow, fonts, colors, order, settings, includePrice = true) {
+  const { layout } = flow;
   const quantityX = layout.compact ? 250 : 365;
   const labelSize = layout.compact ? 7.5 : 10, valueSize = layout.compact ? 9.5 : 13;
-  drawText(page, "Leistung", layout.margin, y, labelSize, fonts.bold, colors.muted);
-  drawText(page, "Menge", quantityX, y, labelSize, fonts.bold, colors.muted);
-  if (includePrice) drawRight(page, `Preis ${priceLabel(settings)}`, layout.right, y, labelSize, fonts.bold, colors.muted, layout.compact ? 112 : 135);
-  let valueY = y - (layout.compact ? 19 : 24);
+  const lineHeight = layout.compact ? 13 : 17;
+  const descriptionWidth = quantityX - layout.margin - 14;
+  const heading = () => {
+    drawText(flow.page, "Leistung", layout.margin, flow.y, labelSize, fonts.bold, colors.muted);
+    drawText(flow.page, "Menge", quantityX, flow.y, labelSize, fonts.bold, colors.muted);
+    if (includePrice) drawRight(flow.page, `Einzelpreis ${priceLabel(settings)}`, layout.right, flow.y, labelSize, fonts.bold, colors.muted, layout.compact ? 112 : 135);
+    flow.y -= layout.compact ? 19 : 24;
+  };
+  await flow.ensure(55);
+  heading();
   for (const item of order.documentItems || [{ description: order.name, quantity: order.quantity, unitPrice: order.price }]) {
-    drawText(page, truncateText(fonts.bold, item.description, valueSize, quantityX - layout.margin - 14), layout.margin, valueY, valueSize, fonts.bold, colors.ink);
-    drawText(page, `${item.quantity} Stk.`, quantityX, valueY, valueSize, fonts.regular, colors.ink);
-    if (includePrice) drawRight(page, swissMoney(displayedPrice(item.unitPrice, order, settings)), layout.right, valueY, valueSize, fonts.bold, colors.ink, layout.compact ? 112 : 135);
-    if (item.note) {
-      drawText(page, truncateText(fonts.regular, item.note, layout.compact ? 7 : 8, quantityX - layout.margin - 14), layout.margin, valueY - (layout.compact ? 11 : 14), layout.compact ? 7 : 8, fonts.regular, colors.muted);
-      valueY -= layout.compact ? 11 : 14;
+    const lines = wrapText(fonts.bold, item.description, valueSize, descriptionWidth).map((text) => ({ text, size: valueSize, font: fonts.bold, color: colors.ink }));
+    if (item.note) lines.push(...wrapText(fonts.regular, item.note, layout.compact ? 8 : 9, descriptionWidth).map((text) => ({ text, size: layout.compact ? 8 : 9, font: fonts.regular, color: colors.muted })));
+    // Keep normal rows together; exceptionally long descriptions can continue on another page.
+    if (await flow.ensure(Math.min(lines.length * lineHeight + 9, 100))) heading();
+    let first = true;
+    for (const line of lines) {
+      if (await flow.ensure(lineHeight + 9)) heading();
+      drawText(flow.page, line.text, layout.margin, flow.y, line.size, line.font, line.color);
+      if (first) {
+        drawText(flow.page, `${item.quantity} Stk.`, quantityX, flow.y, valueSize, fonts.regular, colors.ink);
+        if (includePrice) drawRight(flow.page, swissMoney(displayedPrice(item.unitPrice, order, settings)), layout.right, flow.y, valueSize, fonts.bold, colors.ink, layout.compact ? 100 : 125);
+        first = false;
+      }
+      flow.y -= lineHeight;
     }
-    valueY -= layout.compact ? 22 : 28;
+    flow.y -= layout.compact ? 9 : 11;
   }
-  return valueY;
 }
 function drawTotals(page, layout, fonts, colors, y, order, settings, title) {
   const totalX = layout.compact ? 190 : 320;
@@ -262,29 +316,34 @@ function drawTotals(page, layout, fonts, colors, y, order, settings, title) {
 async function createOfferPdf(offer, settingsOverride) {
   const settings = { ...(await loadAppSettings()), ...(settingsOverride || {}) };
   const pdf = await PDFDocument.create();
-  const page = pdf.addPage(pdfPageSize(settings.pdfFormat));
   const names = pdfFontNames(settings.pdfFont);
   const fonts = { regular: await pdf.embedFont(names.regular), bold: await pdf.embedFont(names.bold) };
   const colors = { violet: rgb(0.33, 0.28, 0.86), ink: rgb(0.11, 0.1, 0.17), muted: rgb(0.42, 0.4, 0.48), pale: rgb(0.96, 0.95, 0.99), line: rgb(0.9, 0.89, 0.93) };
-  const layout = pdfLayout(page, settings.pdfFormat);
-  let y = await drawDocumentHeader(pdf, page, settings, layout, fonts, colors, "Angebot", safeName(offer.offerNumber));
-  y = drawAddressAndDates(page, layout, fonts, colors, settings.showCustomerAddress ? offer.customer : {}, [{ label: "Angebotsdatum", value: offer.offerDate }, { label: "Gültig bis", value: offer.validUntil }], y, "Kunde");
-  drawRule(page, layout, y, colors.line); y -= layout.compact ? 20 : 24;
-  y = drawLineItem(page, layout, fonts, colors, y, offer, settings);
-  drawRule(page, layout, y, colors.line); y -= layout.compact ? 18 : 22;
+  const flow = createPdfFlow(pdf, settings, fonts, colors, "Angebot", safeName(offer.offerNumber));
+  await flow.newPage();
+  const { layout } = flow;
+  flow.y = drawAddressAndDates(flow.page, layout, fonts, colors, settings.showCustomerAddress ? offer.customer : {}, [{ label: "Angebotsdatum", value: offer.offerDate }, { label: "Gültig bis", value: offer.validUntil }], flow.y, "Kunde");
+  drawRule(flow.page, layout, flow.y, colors.line); flow.y -= layout.compact ? 20 : 24;
+  await drawLineItems(flow, fonts, colors, offer, settings);
+  drawRule(flow.page, layout, flow.y, colors.line); flow.y -= layout.compact ? 18 : 22;
   if (settings.showCostSummary) {
-    drawText(page, "Kostenübersicht", layout.margin, y, layout.compact ? 11 : 14, fonts.bold, colors.ink); y -= layout.compact ? 19 : 24;
+    const heading = () => { drawText(flow.page, "Kostenübersicht", layout.margin, flow.y, layout.compact ? 11 : 14, fonts.bold, colors.ink); flow.y -= layout.compact ? 19 : 24; };
+    await flow.ensure(50); heading();
     for (const item of offer.breakdown || []) {
-      drawText(page, truncateText(fonts.regular, item.label, layout.compact ? 8.5 : 11, layout.right - layout.margin - 110), layout.margin, y, layout.compact ? 8.5 : 11, fonts.regular, colors.muted);
-      drawRight(page, swissMoney(displayedPrice(item.value, offer, settings)), layout.right, y, layout.compact ? 8.5 : 11, fonts.regular, colors.ink, layout.compact ? 96 : 115);
-      y -= layout.compact ? 16 : 22;
+      if (await flow.ensure(layout.compact ? 24 : 30)) heading();
+      drawText(flow.page, truncateText(fonts.regular, item.label, layout.compact ? 8.5 : 11, layout.right - layout.margin - 110), layout.margin, flow.y, layout.compact ? 8.5 : 11, fonts.regular, colors.muted);
+      drawRight(flow.page, swissMoney(displayedPrice(item.value, offer, settings)), layout.right, flow.y, layout.compact ? 8.5 : 11, fonts.regular, colors.ink, layout.compact ? 96 : 115);
+      flow.y -= layout.compact ? 16 : 22;
     }
   }
-  y = drawTotals(page, layout, fonts, colors, y, offer, settings, "Angebotswert");
+  await flow.ensure(layout.compact ? 131 : 175);
+  flow.y = drawTotals(flow.page, layout, fonts, colors, flow.y, offer, settings, "Angebotswert");
   const noteSize = layout.compact ? 7 : 9;
-  drawText(page, "Der Preis berücksichtigt Material, Arbeitszeit, Druckbetrieb, Risiken,", layout.margin, y, noteSize, fonts.regular, colors.muted); y -= layout.compact ? 10 : 13;
-  drawText(page, "Gemeinkosten, Zahlungsgebühren und den festgelegten Gewinnaufschlag.", layout.margin, y, noteSize, fonts.regular, colors.muted);
-  drawCompanyFooter(page, settings, layout, fonts.regular, colors.muted, `Angebot ${safeName(offer.offerNumber)}`, colors.line);
+  for (const line of wrapText(fonts.regular, "Der Preis berücksichtigt Material, Arbeitszeit, Druckbetrieb, Risiken, Gemeinkosten, Zahlungsgebühren und den festgelegten Gewinnaufschlag.", noteSize, layout.right - layout.margin)) {
+    await flow.ensure(2);
+    drawText(flow.page, line, layout.margin, flow.y, noteSize, fonts.regular, colors.muted); flow.y -= noteSize + 4;
+  }
+  flow.finish();
   return pdf.save();
 }
 
@@ -308,36 +367,51 @@ async function createOrderDocumentPdf(kind, order, settingsOverride) {
   const settings = { ...(await loadAppSettings()), ...(settingsOverride || {}) };
   const info = orderDocumentInfo(kind, order);
   if (!info) throw new Error("Ungültiger Dokumenttyp");
+  order = normalizeOrder(order);
   const prepared = documentOrder(kind, order);
   const pdf = await PDFDocument.create();
-  const page = pdf.addPage(pdfPageSize(settings.pdfFormat));
   const names = pdfFontNames(settings.pdfFont);
   const fonts = { regular: await pdf.embedFont(names.regular), bold: await pdf.embedFont(names.bold) };
   const colors = { violet: rgb(0.33, 0.28, 0.86), ink: rgb(0.11, 0.1, 0.17), muted: rgb(0.42, 0.4, 0.48), pale: rgb(0.96, 0.95, 0.99), line: rgb(0.9, 0.89, 0.93) };
-  const layout = pdfLayout(page, settings.pdfFormat);
-  let y = await drawDocumentHeader(pdf, page, settings, layout, fonts, colors, info.title, info.number);
+  const flow = createPdfFlow(pdf, settings, fonts, colors, info.title, info.number);
+  await flow.newPage();
+  const { layout } = flow;
   const dateFields = [{ label: kind === "delivery" ? "Lieferdatum" : "Datum", value: info.date }];
   if (kind === "confirmation") dateFields.push({ label: "Voraussichtliche Lieferung", value: order.deliveryDate });
   if (kind === "invoice") dateFields.push({ label: "Zahlbar bis", value: order.dueDate });
-  y = drawAddressAndDates(page, layout, fonts, colors, settings.showCustomerAddress ? order.customer : {}, dateFields, y, "Empfänger");
-  drawRule(page, layout, y, colors.line); y -= layout.compact ? 20 : 24;
-  y = drawLineItem(page, layout, fonts, colors, y, prepared, settings, kind !== "delivery");
-  drawRule(page, layout, y, colors.line); y -= layout.compact ? 18 : 22;
+  flow.y = drawAddressAndDates(flow.page, layout, fonts, colors, settings.showCustomerAddress ? order.customer : {}, dateFields, flow.y, "Empfänger");
+  drawRule(flow.page, layout, flow.y, colors.line); flow.y -= layout.compact ? 20 : 24;
+  await drawLineItems(flow, fonts, colors, prepared, settings, kind !== "delivery");
+  drawRule(flow.page, layout, flow.y, colors.line); flow.y -= layout.compact ? 18 : 22;
   if (kind === "delivery") {
-    drawText(page, "Bestätigung der Lieferung", layout.margin, y, layout.compact ? 11 : 14, fonts.bold, colors.ink); y -= layout.compact ? 24 : 30;
-    if (order.deliveryNote) { drawText(page, truncateText(fonts.regular, `Notiz: ${order.deliveryNote}`, layout.compact ? 8.5 : 11, layout.right - layout.margin), layout.margin, y, layout.compact ? 8.5 : 11, fonts.regular, colors.muted); y -= layout.compact ? 18 : 22; }
-    drawText(page, "Die oben aufgeführte Ware wurde vollständig erhalten.", layout.margin, y, layout.compact ? 8.5 : 11, fonts.regular, colors.muted); y -= layout.compact ? 42 : 58;
+    await flow.ensure(layout.compact ? 125 : 155);
+    drawText(flow.page, "Bestätigung der Lieferung", layout.margin, flow.y, layout.compact ? 11 : 14, fonts.bold, colors.ink); flow.y -= layout.compact ? 24 : 30;
+    if (order.deliveryNote) {
+      const size = layout.compact ? 8.5 : 11;
+      for (const line of wrapText(fonts.regular, `Notiz: ${order.deliveryNote}`, size, layout.right - layout.margin)) {
+        await flow.ensure(size + 5);
+        drawText(flow.page, line, layout.margin, flow.y, size, fonts.regular, colors.muted); flow.y -= size + 5;
+      }
+      flow.y -= 8;
+    }
+    await flow.ensure(layout.compact ? 70 : 90);
+    drawText(flow.page, "Die oben aufgeführte Ware wurde vollständig erhalten.", layout.margin, flow.y, layout.compact ? 8.5 : 11, fonts.regular, colors.muted); flow.y -= layout.compact ? 42 : 58;
     const signatureMiddle = layout.width * .53;
-    page.drawLine({ start: { x: layout.margin, y }, end: { x: signatureMiddle - 16, y }, thickness: 1, color: colors.muted });
-    page.drawLine({ start: { x: signatureMiddle + 16, y }, end: { x: layout.right, y }, thickness: 1, color: colors.muted });
-    y -= layout.compact ? 11 : 14;
-    drawText(page, "Ort, Datum", layout.margin, y, layout.compact ? 7 : 9, fonts.regular, colors.muted);
-    drawText(page, "Unterschrift Empfänger", signatureMiddle + 16, y, layout.compact ? 7 : 9, fonts.regular, colors.muted);
+    flow.page.drawLine({ start: { x: layout.margin, y: flow.y }, end: { x: signatureMiddle - 16, y: flow.y }, thickness: 1, color: colors.muted });
+    flow.page.drawLine({ start: { x: signatureMiddle + 16, y: flow.y }, end: { x: layout.right, y: flow.y }, thickness: 1, color: colors.muted });
+    flow.y -= layout.compact ? 11 : 14;
+    drawText(flow.page, "Ort, Datum", layout.margin, flow.y, layout.compact ? 7 : 9, fonts.regular, colors.muted);
+    drawText(flow.page, "Unterschrift Empfänger", signatureMiddle + 16, flow.y, layout.compact ? 7 : 9, fonts.regular, colors.muted);
   } else {
-    y = drawTotals(page, layout, fonts, colors, y, prepared, settings, kind === "invoice" ? "Rechnungsbetrag" : "Auftragswert");
-    drawText(page, kind === "invoice" ? "Bitte begleichen Sie den Rechnungsbetrag bis zum oben genannten Datum." : "Vielen Dank für Ihre Bestellung. Die Lieferung erfolgt gemäss Auftragsbestätigung.", layout.margin, y, layout.compact ? 7 : 9, fonts.regular, colors.muted);
+    await flow.ensure(layout.compact ? 127 : 162);
+    flow.y = drawTotals(flow.page, layout, fonts, colors, flow.y, prepared, settings, kind === "invoice" ? "Rechnungsbetrag" : "Auftragswert");
+    const size = layout.compact ? 7 : 9;
+    for (const line of wrapText(fonts.regular, kind === "invoice" ? "Bitte begleichen Sie den Rechnungsbetrag bis zum oben genannten Datum." : "Vielen Dank für Ihre Bestellung. Die Lieferung erfolgt gemäss Auftragsbestätigung.", size, layout.right - layout.margin)) {
+      await flow.ensure(2);
+      drawText(flow.page, line, layout.margin, flow.y, size, fonts.regular, colors.muted); flow.y -= size + 4;
+    }
   }
-  drawCompanyFooter(page, settings, layout, fonts.regular, colors.muted, info.number, colors.line);
+  flow.finish();
   return pdf.save();
 }
 
@@ -346,7 +420,7 @@ async function writeOrderDocument(kind, order) {
   const folders = await offerFolders(order.offerNumber);
   const target = await uniquePath(folders.exports, `${info.number}_${info.filename}.pdf`);
   await fs.writeFile(target, await createOrderDocumentPdf(kind, order));
-  const updated = { ...order, documents: { ...(order.documents || {}), [kind]: { createdAt: new Date().toISOString(), path: target } } };
+  const updated = { ...normalizeOrder(order), documents: { ...(order.documents || {}), [kind]: { createdAt: new Date().toISOString(), path: target } } };
   await fs.writeFile(path.join(folders.data, "auftragsbestaetigung.json"), JSON.stringify(updated, null, 2), "utf8");
   return { path: target, order: updated };
 }
@@ -453,8 +527,8 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle("order:save", async (_event, order) => {
     const folders = await offerFolders(order.offerNumber);
-    await fs.writeFile(path.join(folders.data, "auftragsbestaetigung.json"), JSON.stringify(order, null, 2), "utf8");
-    return order;
+    await fs.writeFile(path.join(folders.data, "auftragsbestaetigung.json"), JSON.stringify(normalizeOrder(order), null, 2), "utf8");
+    return normalizeOrder(order);
   });
   ipcMain.handle("order:export-document", async (_event, kind, order) => {
     if (!new Set(["confirmation", "delivery", "invoice"]).has(kind)) throw new Error("Ungültiger Dokumenttyp");

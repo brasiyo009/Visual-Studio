@@ -27,6 +27,7 @@
       <footer class="app-footer" aria-label="Unternehmensangaben"><div><strong>SY 3D</strong><span id="footer-address">Adresse ergänzen</span></div><div>Copyright © 2026 SY 3D. Alle Rechte vorbehalten.</div><div>Designed / Printed and supplied in Switzerland</div></footer>
     </main>
     <dialog id="documents-dialog"><div class="dialog-head"><div><p class="kicker">BESTÄTIGTER AUFTRAG</p><h2>Auftragsdokumente</h2></div><button id="close-documents" class="quiet">Schliessen</button></div><p id="confirmation-summary" class="hint"></p><div class="grid three document-dates"><label>Auftragsbestätigung<input id="confirmation-date" type="date" /></label><label>Lieferdatum<input id="delivery-date" type="date" /></label><label>Rechnungsdatum<input id="invoice-date" type="date" /></label><label>Zahlbar bis<input id="due-date" type="date" /></label></div><div class="document-actions"><button id="export-confirmation" class="primary">Auftragsbestätigung PDF</button><button id="export-delivery" class="primary">Lieferschein PDF</button><button id="export-invoice" class="export">Rechnung PDF</button></div><p id="document-message" class="message" aria-live="polite"></p></dialog>
+    <script src="order-items.cjs"></script>
     <script src="renderer.js"></script>
   </body>
 </html>

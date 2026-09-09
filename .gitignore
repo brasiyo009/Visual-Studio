@@ -41,3 +41,6 @@ yarn-error.log*
 
 # Local PDF smoke-test exports
 /tmp/
+
+# Local macOS installation packages
+/release/

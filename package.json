@@ -1,6 +1,6 @@
 {
   "name": "site-creator-vinext-starter",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "private": true,
   "main": "desktop/main.cjs",
   "engines": {
@@ -11,7 +11,7 @@
     "build": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build",
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
     "test": "npm run build && node --test tests/rendered-html.test.mjs",
-    "test:desktop": "node --test tests/desktop-sales-order-items.test.mjs tests/desktop-pdf-logo.test.mjs",
+    "test:desktop": "node --test tests/desktop-*.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "desktop:dev": "env -u ELECTRON_RUN_AS_NODE electron .",
@@ -29,7 +29,11 @@
       "target": [
         "dmg"
       ]
-    }
+    },
+    "directories": {
+      "output": "release/macos"
+    },
+    "artifactName": "Druckpreis-${version}-${arch}.${ext}"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
@@ -63,5 +67,6 @@
     "vite": "8.0.13",
     "wrangler": "4.92.0"
   },
-  "type": "module"
+  "type": "module",
+  "description": "SY 3D – Angebote, Aufträge, Lieferscheine und Rechnungen für 3D-Druck"
 }
