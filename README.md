@@ -4,14 +4,14 @@ Lokale SY-3D-Anwendung für 3D-Druckkalkulation, Angebote, Auftragsbestätigunge
 
 ## macOS installieren
 
-[Version 0.2.7 herunterladen](https://github.com/brasiyo009/Visual-Studio/releases/tag/v0.2.7). macOS 13 oder neuer ist erforderlich.
+[Version 0.2.8 herunterladen](https://github.com/brasiyo009/Visual-Studio/releases/tag/v0.2.8). macOS 13 oder neuer ist erforderlich.
 
-- Apple Silicon (M-Serie): `Druckpreis-0.2.7-arm64.dmg`
-- Intel: `Druckpreis-0.2.7-x64.dmg`
+- Apple Silicon (M-Serie): `Druckpreis-0.2.8-arm64.dmg`
+- Intel: `Druckpreis-0.2.8-x64.dmg`
 
 Druckpreis beenden, die DMG öffnen und die App in den Programme-Ordner ziehen. Angebote und Einstellungen bleiben unter `Dokumente/3D Druck Angebote` erhalten. Bereits exportierte PDFs bei Bedarf erneut erstellen.
 
-Die Pakete sind nicht mit einer Apple Developer ID signiert oder notarisiert; macOS kann beim ersten Start eine Sicherheitsfreigabe verlangen. Prüfsummen stehen im Release als `SHA256SUMS.txt` bereit.
+Version 0.2.8 enthält eine vollständige Ad-hoc-Signatur; die Signaturprüfung ist Teil des Builds. Die Pakete sind nicht mit einer Apple Developer ID signiert oder notarisiert. Falls macOS den Entwickler nicht verifizieren kann, kann nach dem ersten Öffnungsversuch unter Systemeinstellungen → Datenschutz & Sicherheit → Dennoch öffnen eine Freigabe nötig sein. [Apple-Anleitung](https://support.apple.com/de-de/102445). Prüfsummen stehen im Release als `SHA256SUMS.txt` bereit.
 
 ## Desktop entwickeln und prüfen
 
