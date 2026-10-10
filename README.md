@@ -2,6 +2,8 @@
 
 Lokale SY-3D-Anwendung für 3D-Druckkalkulation, Angebote, Auftragsbestätigungen, Lieferscheine und Rechnungen.
 
+Aktueller Prüfstand: **PreFinal vom 10.10.2026** auf Basis der App-Version 0.2.8. Details und frühere Stände stehen in [VERSIONEN.md](VERSIONEN.md).
+
 ## macOS installieren
 
 [Version 0.2.8 herunterladen](https://github.com/brasiyo009/Visual-Studio/releases/tag/v0.2.8). macOS 13 oder neuer ist erforderlich.
