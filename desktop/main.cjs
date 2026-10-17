@@ -302,7 +302,7 @@ function drawTotals(page, layout, fonts, colors, y, order, settings, title) {
     drawRight(page, value, layout.right, y, amountSize, fonts.regular, colors.ink, layout.compact ? 94 : 112);
     y -= layout.compact ? 16 : 20;
   };
-  drawTotalRow(`Zwischensumme ${priceLabel(settings)}`, swissMoney(displayedPrice(order.subtotal, order, settings)));
+  drawTotalRow("Zwischensumme", swissMoney(displayedPrice(order.subtotal, order, settings)));
   if (settings.showDiscount) drawTotalRow(`Rabatt (${Number(order.discountPercent || 0).toFixed(1)} %)`, `- ${swissMoney(displayedPrice(order.discountValue, order, settings))}`);
   y -= layout.compact ? 3 : 6;
   const boxHeight = layout.compact ? 46 : 52, boxY = y - boxHeight;
@@ -338,11 +338,6 @@ async function createOfferPdf(offer, settingsOverride) {
   }
   await flow.ensure(layout.compact ? 131 : 175);
   flow.y = drawTotals(flow.page, layout, fonts, colors, flow.y, offer, settings, "Angebotswert");
-  const noteSize = layout.compact ? 7 : 9;
-  for (const line of wrapText(fonts.regular, "Der Preis berücksichtigt Material, Arbeitszeit, Druckbetrieb, Risiken, Gemeinkosten, Zahlungsgebühren und den festgelegten Gewinnaufschlag.", noteSize, layout.right - layout.margin)) {
-    await flow.ensure(2);
-    drawText(flow.page, line, layout.margin, flow.y, noteSize, fonts.regular, colors.muted); flow.y -= noteSize + 4;
-  }
   flow.finish();
   return pdf.save();
 }
