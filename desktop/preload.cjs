@@ -1,6 +1,8 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("druckpreis", {
+  listCatalogue: () => ipcRenderer.invoke("catalogue:list"),
+  saveCatalogueProduct: (product) => ipcRenderer.invoke("catalogue:save", product),
   getSettings: () => ipcRenderer.invoke("settings:get"),
   saveSettings: (settings) => ipcRenderer.invoke("settings:save", settings),
   chooseLogo: () => ipcRenderer.invoke("settings:choose-logo"),

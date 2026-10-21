@@ -1,5 +1,14 @@
 # Versionshistorie
 
+## 0.3.0 - 21.10.2026
+
+- Neuer Preiskatalog mit Produktgalerie, Suche sowie Kategorie-, Material- und Archivfiltern.
+- Produkte mit CHF-Stückpreis, Ab-Preis, MWST-Angabe, Beschreibung, Material, Farbe und Abmessungen.
+- Bis zu acht importierte Fotos je Produkt, Titelbildauswahl und Entfernen einzelner Fotos.
+- Produkte bearbeiten, duplizieren, archivieren und wiederherstellen.
+- Lokale, atomare Speicherung inklusive optimierter Bildkopien unter `Dokumente/3D Druck Angebote/Preiskatalog/katalog.json`.
+- Katalogpreise werden manuell gepflegt; Angebotsübernahme und PDF-Katalogexport sind noch nicht enthalten.
+
 ## PreFinal - 10.10.2026
 
 - Vollstaendige Funktions- und Regressionspruefung des aktuellen Programmstands 0.2.8.

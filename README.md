@@ -2,9 +2,19 @@
 
 Lokale SY-3D-Anwendung für 3D-Druckkalkulation, Angebote, Auftragsbestätigungen, Lieferscheine und Rechnungen.
 
-Aktueller Prüfstand: **PreFinal vom 10.10.2026** auf Basis der App-Version 0.2.8. Details und frühere Stände stehen in [VERSIONEN.md](VERSIONEN.md).
+Aktueller Entwicklungsstand: **0.3.0 vom 21.10.2026** mit lokalem Preiskatalog. Details und frühere Stände stehen in [VERSIONEN.md](VERSIONEN.md).
+
+## Preiskatalog
+
+Im Tab **Preiskatalog** Produkte hinzufügen, Bilder auswählen oder hineinziehen und einen CHF-Preis pro Stück festlegen. Optional sind Ab-Preis, MWST-Angabe, Beschreibung, Kategorie, Material, Farbe und Abmessungen. Ein Klick auf eine Produktkarte öffnet Details sowie Bearbeiten, Duplizieren und Archivieren. Archivierte Produkte können über den Ansichtsfilter wiederhergestellt werden.
+
+Pro Produkt sind acht PNG-, JPG- oder WebP-Fotos mit jeweils maximal 10 MB möglich. Das erste Foto ist das Titelbild; es kann im Editor gewechselt werden. Bilder werden als optimierte Kopien (maximal 1400 Pixel Kantenlänge) eingebettet. Die Originaldateien werden danach nicht mehr benötigt. Änderungen im Editor werden mit **Produkt speichern** übernommen.
+
+Der gesamte Katalog inklusive Bildern liegt in `Dokumente/3D Druck Angebote/Preiskatalog/katalog.json`. Diesen Ordner für ein Backup mitkopieren. Katalogpreise bleiben unabhängig von Kalkulation und Angeboten. Angebotsübernahme und PDF-Katalogexport sind für einen späteren Schritt vorgesehen.
 
 ## macOS installieren
+
+Der lokale Apple-Silicon-Installer für 0.3.0 liegt nach dem Paketbau unter `release/macos/Druckpreis-0.3.0-arm64.dmg`. Die folgende GitHub-Veröffentlichung ist weiterhin Version 0.2.8.
 
 [Version 0.2.8 herunterladen](https://github.com/brasiyo009/Visual-Studio/releases/tag/v0.2.8). macOS 13 oder neuer ist erforderlich.
 

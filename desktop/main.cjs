@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, shell, nativeImage } = require("electron");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { PDFDocument, StandardFonts, rgb } = require("pdf-lib");
@@ -6,6 +6,7 @@ const { DEFAULT_LOGO_WIDTH, LOGO_SIZE_VERSION, logoBounds, normalizeLogoSettings
 
 const { normalizeOrder } = require("./order-items.cjs");
 
+const { createCatalogue } = require("./catalogue.cjs");
 let mainWindow;
 
 function safeName(value, fallback = "Ohne_Angebotsnummer") {
@@ -451,6 +452,15 @@ if (process.env.DRUCKPREIS_PDF_SMOKE === "1") {
 app.whenReady().then(async () => {
   await fs.mkdir(offersRoot(), { recursive: true });
   await fs.mkdir(settingsFolder(), { recursive: true });
+  const catalogue = createCatalogue(path.join(app.getPath("documents"), "3D Druck Angebote", "Preiskatalog"), (data) => {
+    const picture = nativeImage.createFromDataURL(data);
+    if (picture.isEmpty()) throw new Error("Das Foto konnte nicht gelesen werden.");
+    const { width, height } = picture.getSize();
+    const resized = Math.max(width, height) > 1400 ? picture.resize(width >= height ? { width: 1400 } : { height: 1400 }) : picture;
+    return `data:image/jpeg;base64,${resized.toJPEG(85).toString("base64")}`;
+  });
+  ipcMain.handle("catalogue:list", () => catalogue.list());
+  ipcMain.handle("catalogue:save", (_event, product) => catalogue.save(product));
   ipcMain.handle("settings:get", async () => loadAppSettings());
   ipcMain.handle("settings:save", async (_event, settings) => saveAppSettings(settings));
   ipcMain.handle("settings:choose-logo", async (event) => {
