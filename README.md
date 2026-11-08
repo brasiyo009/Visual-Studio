@@ -14,7 +14,11 @@ Der gesamte Katalog inklusive Bildern liegt in `Dokumente/3D Druck Angebote/Prei
 
 ## macOS installieren
 
-Der lokale Apple-Silicon-Installer für 0.3.0 liegt nach dem Paketbau unter `release/macos/Druckpreis-0.3.0-arm64.dmg`. Die folgende GitHub-Veröffentlichung ist weiterhin Version 0.2.8.
+**Direkt öffnen:** `Dokumente/3D Print/Druckpreis-Installation.dmg`.
+
+Diese Datei enthält die lokale Version 0.3.0 für diesen Mac (Apple Silicon). DMG per Doppelklick öffnen und **Druckpreis in den Programme-Ordner ziehen**. Danach die App über **Programme → Druckpreis** starten; zum schnellen Wiederfinden im Dock behalten.
+
+Der Paketbau legt den zum Build-Mac passenden Installer automatisch zusätzlich als `Druckpreis-Installation.dmg` im Projektordner ab. Die fertig gebaute Datei ersetzt die vorherige Kopie erst nach erfolgreichem Kopieren. Das versionierte Original bleibt unter `release/macos/Druckpreis-0.3.0-arm64.dmg`. Die folgende GitHub-Veröffentlichung ist weiterhin Version 0.2.8.
 
 [Version 0.2.8 herunterladen](https://github.com/brasiyo009/Visual-Studio/releases/tag/v0.2.8). macOS 13 oder neuer ist erforderlich.
 
@@ -36,7 +40,7 @@ npm test
 npm run desktop:package -- --arm64 --x64 --publish never
 ```
 
-Installationspakete landen unter `release/macos/`, getrennt vom Web-Build unter `dist/`.
+Installationspakete landen unter `release/macos/`, getrennt vom Web-Build unter `dist/`. Der Installer für die Architektur des Build-Macs wird zusätzlich direkt im Projektordner als `Druckpreis-Installation.dmg` abgelegt. Beide Ablagen sind von Git ausgeschlossen.
 
 Ab Version 0.2.7 übernehmen Rechnung und Lieferschein die Auftragspositionen. Eigene Ergänzungen und bewusst geänderte Werte bleiben erhalten. Datumsfelder teilen sich über alle Ansichten denselben Wert. Angebotsdateien speichern ausschliesslich Angebotsdaten; alte Administrationseinträge werden beim Laden ignoriert.
 

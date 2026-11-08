@@ -1,5 +1,17 @@
 # Versionshistorie
 
+## Installationsprüfung 0.3.0 - 08.11.2026
+
+- Apple-Silicon-Installer neu gebaut und direkt unter `Dokumente/3D Print/Druckpreis-Installation.dmg` abgelegt.
+- Der Paketbau aktualisiert diese leicht auffindbare Kopie künftig automatisch für die Architektur des Build-Macs. Versionierte Pakete bleiben unter `release/macos/`.
+- Desktop-Tests: 16 von 16 bestanden. ESLint sowie Web-Build und Render-Test bestanden.
+- Gepackte App-Dateien in Electron mit isolierten Testdaten geprüft: Kalkulation (Startpreis CHF 87.00), Angebot speichern/laden, Auftrag bestätigen und alle vier PDF-Dokumentarten in A4/A5.
+- Preiskatalog im laufenden Test geprüft: Fotoimport, Speichern, Details, Duplizieren, Archivieren, Wiederherstellen und Suche.
+- Signierte App direkt im PDF-Testmodus gestartet; acht lesbare A4-/A5-Dokumente erfolgreich erzeugt.
+- Vollständige Ad-hoc-Signatur und DMG-Integrität geprüft; SHA-256 der direkt abgelegten Kopie stimmt mit dem versionierten Original überein.
+
+Die App-Version bleibt 0.3.0; diese Änderung verbessert die Ablage und dokumentiert die erneute Prüfung. Die App ist weiterhin nicht mit einer Apple Developer ID signiert oder notarisiert.
+
 ## 0.3.0 - 21.10.2026
 
 - Neuer Preiskatalog mit Produktgalerie, Suche sowie Kategorie-, Material- und Archivfiltern.

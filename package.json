@@ -36,7 +36,8 @@
     },
     "artifactName": "Druckpreis-${version}-${arch}.${ext}",
     "forceCodeSigning": true,
-    "afterSign": "build/verify-macos-signature.cjs"
+    "afterSign": "build/verify-macos-signature.cjs",
+    "afterAllArtifactBuild": "build/copy-local-installer.cjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",

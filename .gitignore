@@ -44,3 +44,5 @@ yarn-error.log*
 
 # Local macOS installation packages
 /release/
+/Druckpreis-Installation.dmg
+/Druckpreis-Installation.dmg.partial
